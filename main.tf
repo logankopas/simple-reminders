@@ -2,7 +2,7 @@ terraform {
   required_providers {
     google = {
       source = "hashicorp/google"
-      version = "4.51.0"
+      version = "6.7.0"
     }
   }
 }
@@ -44,6 +44,14 @@ resource "google_storage_bucket_object" "cloud_fn_src_zips" {
   name = "fn_src_${data.archive_file.src_zip.output_md5}.zip" # Every bucket name must be globally unique
 }
 
+# Secrets
+resource "google_secret_manager_secret_iam_member" "twilio_auth_token" {
+  project = var.gcp_project
+  secret_id = var.twilio_auth_token_secret_id
+  role = "roles/secretmanager.secretAccessor"
+  member = "serviceAccount:${google_service_account.main_service_account.email}"
+}
+
 # Cloud Function
 resource "google_cloudfunctions2_function" "default" {
   name        = "simple-reminders"
@@ -53,6 +61,7 @@ resource "google_cloudfunctions2_function" "default" {
   build_config {
     runtime     = "python310"
     entry_point = "root" # Set the entry point
+    service_account = google_service_account.main_service_account.id
     source {
       storage_source {
         bucket = google_storage_bucket.cloud_fn_src_bucket.name
@@ -65,8 +74,26 @@ resource "google_cloudfunctions2_function" "default" {
     max_instance_count = 1
     available_memory   = "256M"
     timeout_seconds    = 60
+    environment_variables = {
+      TESTING_NUMBER = var.testing_number
+      TWILIO_ACCOUNT_SID = var.twilio_account_sid
+      TWILIO_OUTBOUND_NUMBER = var.twilio_outbound_number
+    }
+    secret_environment_variables {
+      key = "TWILIO_AUTH_TOKEN"
+      project_id = var.gcp_project
+      secret = var.twilio_auth_token_secret_id
+      version = "latest"
+    }
   }
 }
+
+resource "google_storage_bucket_iam_member" "function_src_access" {
+  bucket = google_cloudfunctions2_function.default.build_config[0].source[0].storage_source[0].bucket
+  role = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.main_service_account.email}"
+}
+
 
 resource "google_cloudfunctions2_function_iam_member" "invoker" {
   project        = google_cloudfunctions2_function.default.project
@@ -84,6 +111,7 @@ resource "google_cloud_run_service_iam_member" "cloud_run_invoker" {
   member   = "serviceAccount:${google_service_account.main_service_account.email}"
 }
 
+# Not ready for this yet
 #resource "google_cloud_scheduler_job" "invoke_cloud_function" {
 #  name        = "invoke-gcf-function"
 #  description = "Schedule the HTTPS trigger for cloud function"
@@ -100,7 +128,8 @@ resource "google_cloud_run_service_iam_member" "cloud_run_invoker" {
 #    }
 #  }
 #}
-#
+
+
 output "function_uri" {
   value = google_cloudfunctions2_function.default.service_config[0].uri
 }
