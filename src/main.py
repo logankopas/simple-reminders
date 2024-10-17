@@ -19,6 +19,7 @@ def root(request):
         # handle incoming message
         print('SMS recieved:')
         print(data['body'])
+        return "<Response></Response>"
     else:
         # send test message
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)

@@ -25,9 +25,27 @@ resource "google_storage_bucket" "cloud_fn_src_bucket" {
   name = "simple_reminders_src"
 }
 
-resource "google_storage_bucket_iam_member" "src_access" {
-  bucket = google_storage_bucket.cloud_fn_src_bucket.id
-  role = "roles/storage.objectAdmin"
+resource "google_project_iam_member" "src_access" {
+  project = var.gcp_project
+  role = "roles/storage.admin"
+  member = "serviceAccount:${google_service_account.main_service_account.email}"
+}
+
+resource "google_project_iam_member" "log_writer" {
+  project = var.gcp_project
+  role = "roles/logging.logWriter"
+  member = "serviceAccount:${google_service_account.main_service_account.email}"
+}
+
+resource "google_project_iam_member" "artifact_reader" {
+  project = var.gcp_project
+  role = "roles/artifactregistry.reader"
+  member = "serviceAccount:${google_service_account.main_service_account.email}"
+}
+
+resource "google_project_iam_member" "artifact_writer" {
+  project = var.gcp_project
+  role = "roles/artifactregistry.writer"
   member = "serviceAccount:${google_service_account.main_service_account.email}"
 }
 
@@ -74,6 +92,7 @@ resource "google_cloudfunctions2_function" "default" {
     max_instance_count = 1
     available_memory   = "256M"
     timeout_seconds    = 60
+    service_account_email = google_service_account.main_service_account.email
     environment_variables = {
       TESTING_NUMBER = var.testing_number
       TWILIO_ACCOUNT_SID = var.twilio_account_sid
@@ -87,13 +106,6 @@ resource "google_cloudfunctions2_function" "default" {
     }
   }
 }
-
-resource "google_storage_bucket_iam_member" "function_src_access" {
-  bucket = google_cloudfunctions2_function.default.build_config[0].source[0].storage_source[0].bucket
-  role = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.main_service_account.email}"
-}
-
 
 resource "google_cloudfunctions2_function_iam_member" "invoker" {
   project        = google_cloudfunctions2_function.default.project
