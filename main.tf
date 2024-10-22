@@ -93,6 +93,7 @@ resource "google_cloudfunctions2_function" "default" {
     available_memory   = "256M"
     timeout_seconds    = 60
     service_account_email = google_service_account.main_service_account.email
+    ingress_settings = "ALLOW_ALL"
     environment_variables = {
       TESTING_NUMBER = var.testing_number
       TWILIO_ACCOUNT_SID = var.twilio_account_sid
@@ -120,7 +121,7 @@ resource "google_cloud_run_service_iam_member" "cloud_run_invoker" {
   location = google_cloudfunctions2_function.default.location
   service  = google_cloudfunctions2_function.default.name
   role     = "roles/run.invoker"
-  member   = "serviceAccount:${google_service_account.main_service_account.email}"
+  member   = "allUsers"  # allow public http access
 }
 
 # Not ready for this yet
