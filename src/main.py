@@ -1,50 +1,33 @@
 import functions_framework
-import os
+import logging
 from flask import abort
-from twilio.rest import Client
-from twilio.request_validator import RequestValidator
-from twilio.twiml.messaging_response import Message, MessagingResponse
-from pprint import pprint
+import sms_handler
 
-TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN','')
-TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID','')
-TWILIO_OUTBOUND_NUMBER = os.getenv('TWILIO_OUTBOUND_NUMBER','')
-TESTING_NUMBER = os.getenv('TESTING_NUMBER','')
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
 
 @functions_framework.http
 def root(request):
-    # only accept JSON requests, either from Twilio or from
-    # cloud scheduler
-    print('Request received:')
-    print(dict(request.headers))
-    print(dict(request.form))
+    logger.debug('Request received:')
+    logger.debug(dict(request.headers))
 
-    data = request.get_json() or request.form
+    data = {}
+    content_type = request.headers.get('Content-Type', '')
+    if content_type == 'application/x-www-form-urlencoded':
+        data = request.form
+    elif content_type == 'application/json':
+        data = request.get_json()
+
+    logger.debug(f'payload received: {data}')
+
     if 'MessageSid' in data:
+        logger.debug('Detected Twilio message')
         # handle incoming twilio message
-        if not is_valid_twilio_request(request):
+        if not sms_handler.is_valid_twilio_request(request):
             return abort(403)
 
-        print('SMS recieved:')
-        print(data['Body'])
-        response = MessagingResponse()
-        response.message(f"Message received: {data['body']}")
+        response = sms_handler.handle_incoming_sms(data)
         return response
-    
+
     return abort(400)
-
-
-def is_valid_twilio_request(request):
-    validator = RequestValidator(TWILIO_AUTH_TOKEN)
-    print('validating twilio request')
-    print(request.url)
-    print(request.form)
-    print(request.headers.get('X-TWILIO-SIGNATURE',''))
-    return validator.validate(
-        request.url, request.form, request.headers.get('X-TWILIO-SIGNATURE', ''))
-
-# Routes:
-#  /cron - schedules daily notifications
-#        - verify oidc token
-#  /twiml - receives twilio webhooks
-#         - verify twilio

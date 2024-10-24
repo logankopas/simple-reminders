@@ -1,0 +1,7 @@
+import os
+
+TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN','')
+TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID','')
+TWILIO_OUTBOUND_NUMBER = os.getenv('TWILIO_OUTBOUND_NUMBER','')
+TESTING_NUMBER = os.getenv('TESTING_NUMBER','')
+FN_NAME = os.getenv('FN_NAME', '')

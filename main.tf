@@ -72,7 +72,7 @@ resource "google_secret_manager_secret_iam_member" "twilio_auth_token" {
 
 # Cloud Function
 resource "google_cloudfunctions2_function" "default" {
-  name        = "simple-reminders"
+  name        = var.fn_name
   location    = var.gcp_region
   description = "simple SMS based reminders"
 
@@ -98,6 +98,7 @@ resource "google_cloudfunctions2_function" "default" {
       TESTING_NUMBER = var.testing_number
       TWILIO_ACCOUNT_SID = var.twilio_account_sid
       TWILIO_OUTBOUND_NUMBER = var.twilio_outbound_number
+      FN_NAME = var.fn_name
     }
     secret_environment_variables {
       key = "TWILIO_AUTH_TOKEN"
